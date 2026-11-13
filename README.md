@@ -59,6 +59,7 @@ Scripts are in `package.json`. `bun run db:push` is for local development only. 
 - The same labels work on the issue in Linear (team PRO), which syncs labels and comments with GitHub.
 - The agent swaps the label for `agent:working`, then for `agent:pr` once it links a pull request, or for `agent:blocked` after asking a question on the issue.
 - To retry a blocked issue, remove `agent:blocked` and add `agent` again.
+- Closing an agent's pull request without merging drops the work; the controller's nightly cleanup then removes its worktree and branches.
 
 ## Documentation
 
