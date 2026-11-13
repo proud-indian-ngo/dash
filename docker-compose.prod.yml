@@ -6,7 +6,7 @@ x-db-url: &db-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@tai
 services:
   postgres:
     # Pinned to the patch release so an upgrade is a deliberate, planned restart
-    image: postgres:18.6
+    image: postgres:18.7
     environment:
       TZ: Asia/Kolkata
       POSTGRES_DB: ${POSTGRES_DB:-pi-dash}
