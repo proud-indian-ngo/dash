@@ -1,5 +1,5 @@
 # PostHog CLI for the source map upload, pinned with checksums from its GitHub release
-FROM oven/bun:1.4.4-slim AS posthog-cli
+FROM oven/bun:1.4.5-slim AS posthog-cli
 ARG TARGETARCH
 RUN case "$TARGETARCH" in \
       arm64) target=aarch64-unknown-linux-gnu; sha=13a986a164b3ec8f093ef7f2a9cd1360ba2f9748deab1e8e4a471fbec85bb46c ;; \
@@ -14,7 +14,7 @@ RUN case "$TARGETARCH" in \
     posthog-cli --version
 
 # Shared dependencies and source for the web build and migrator bundle
-FROM oven/bun:1.4.4-slim AS source
+FROM oven/bun:1.4.5-slim AS source
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/
@@ -99,7 +99,7 @@ RUN bun build packages/db/scripts/migrate.ts --target=bun --outfile=/out/scripts
     cp packages/db/src/migrations/meta/_journal.json /out/src/migrations/meta/
 
 # Production
-FROM oven/bun:1.4.4-slim AS production
+FROM oven/bun:1.4.5-slim AS production
 ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
