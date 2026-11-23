@@ -41,6 +41,7 @@ Copy `.env.sample` to `.env` locally. In production, web is a Dokploy Applicatio
 | `ZERO_APP_PUBLICATIONS` | Yes (zero-cache) | Must be `pi_dash_public`; excludes private user fields and auth tables |
 | `ZERO_MUTATE_URL`, `ZERO_QUERY_URL` | Yes (zero-cache) | Web app's `/api/zero/mutate` and `/api/zero/query` |
 | `ZERO_MUTATE_FORWARD_COOKIES`, `ZERO_QUERY_FORWARD_COOKIES` | No | Forward session cookies |
+| `ZERO_AUTH_REQUIRE_SERVER_USER_ID` | Prod | `true`: zero-cache refuses a client whose claimed user ID differs from the one `/query` and `/mutate` return from the session |
 | `ZERO_ADMIN_PASSWORD` | Prod | zero-cache admin password |
 | `ZERO_OPERATOR_PASSWORD` | No | Basic-auth password for `/statz`, `/profz` and `/plannerz`; unlike the admin password, it cannot read application data |
 | `ZERO_LOG_LEVEL`, `ZERO_REPLICA_FILE` | No | Log level; SQLite replica path |
@@ -189,7 +190,7 @@ Turning backup on needs a fresh replica: a replica built without backup crash-lo
 
 ### Signing service
 
-The `signing` service is the generic KeySeal image (`ghcr.io/somus/keyseal-service`, the tag in `services/signing-plugin/Dockerfile`) with `services/signing-plugin` installed. Only the web app reaches it. Deploy Compose before merging a web change that needs new signing behaviour. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
+The `signing` service is the generic KeySeal image (`ghcr.io/somus/keyseal-service`, the tag in `services/signing-plugin/Dockerfile`) with `services/signing-plugin` installed. Only the web app reaches it. Deploy Compose before merging a web change that needs new signing behaviour. `SIGNING_TSA_URL` lists its timestamp authorities, asked in turn until one answers (Compose defaults to DigiCert, then GlobalSign; `none` disables them) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
 
 The KeySeal helper calls `/api/signing/v1/jobs/<token>` and reads `/.well-known/keyseal.json` on `APP_URL` (or `BETTER_AUTH_URL`), which must be `https` on a domain name. Helper releases come from the KeySeal repository; raising `MIN_HELPER_VERSION` in `apps/web/src/lib/governance/signing-jobs.ts` makes trustees update before they can sign, so raise it only once that release exists.
 

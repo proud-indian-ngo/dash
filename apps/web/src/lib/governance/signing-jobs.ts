@@ -335,6 +335,21 @@ const adapter: Adapter = {
       ? new Uint8Array(await file.arrayBuffer())
       : null;
   },
+  async listBlobs() {
+    const prefix = blobKey("");
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+    do {
+      const page = await getS3().list({ continuationToken, prefix });
+      for (const { key } of page.contents ?? []) {
+        keys.push(key.slice(prefix.length));
+      }
+      continuationToken = page.isTruncated
+        ? page.nextContinuationToken
+        : undefined;
+    } while (continuationToken);
+    return keys;
+  },
   onCompleted: completeJob,
   onFailed: failJob,
   async putBlob(key, bytes) {

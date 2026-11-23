@@ -27,7 +27,7 @@ AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
 def client_for(validation: ValidationSettings) -> TestClient:
-    return TestClient(create_app(Settings(token=TOKEN, tsa_url=None, validation=validation)))
+    return TestClient(create_app(Settings(token=TOKEN, tsa_urls=(), validation=validation)))
 
 
 def _name(cn: str) -> x509.Name:

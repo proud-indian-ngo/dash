@@ -1,4 +1,4 @@
-import { createPrivateKey, sign } from "node:crypto";
+import { createHash, createPrivateKey, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -37,13 +37,13 @@ const HELPER_VERSION = "0.1.0";
 
 /**
  * Catches the next helper link the page receives from the server. Resolves
- * with the job token. The page opens the link in a hidden iframe, which the
+ * with the job URL, which names the job by its token. The page opens the link in a hidden iframe, which the
  * test browser drops since no app handles `keyseal://`.
  */
 export async function catchHelperLink(
   page: Page
 ): Promise<() => Promise<string>> {
-  const token = Promise.withResolvers<string>();
+  const jobUrl = Promise.withResolvers<string>();
   const onResponse = async (response: Response) => {
     if (!response.url().includes("/_serverFn/")) {
       return;
@@ -53,11 +53,32 @@ export async function catchHelperLink(
       return;
     }
     page.off("response", onResponse);
-    const job = new URL(decodeURIComponent(match[1]));
-    token.resolve(job.pathname.split("/").at(-1) ?? "");
+    jobUrl.resolve(decodeURIComponent(match[1]));
   };
   page.on("response", onResponse);
-  return () => token.promise;
+  return () => jobUrl.promise;
+}
+
+/**
+ * The proof an enrolment carries that the helper holds the certificate's key
+ * (KeySeal spec section 8.6). The test keys are RSA, which signs SHA-256
+ * PKCS#1 v1.5.
+ */
+function enrolProof(
+  jobUrl: string,
+  claimNonce: string,
+  signer: TestSigner,
+  key: ReturnType<typeof createPrivateKey>
+): string {
+  const message = [
+    "KeySeal enrol proof v1",
+    jobUrl,
+    claimNonce,
+    createHash("sha256")
+      .update(Buffer.from(signer.certificate, "base64"))
+      .digest("hex"),
+  ].join("\0");
+  return sign("sha256", Buffer.from(message), key).toString("base64");
 }
 
 /**
@@ -66,10 +87,12 @@ export async function catchHelperLink(
  */
 export async function completeHelperJob(
   page: Page,
-  token: string,
+  jobUrl: string,
   signer: TestSigner
 ): Promise<{ message: string; status: number }> {
-  const url = `/api/signing/v1/jobs/${token}`;
+  // The job URL's origin is the server's APP_URL, which can differ from the
+  // origin the specs browse; the proof signs it, the requests use its path.
+  const url = new URL(jobUrl).pathname;
   const headers = { "X-KeySeal-Version": HELPER_VERSION };
   const claimed = await page.request.get(url, { headers });
   const job = (await claimed.json()) as {
@@ -81,8 +104,16 @@ export async function completeHelperJob(
     return { message: job.message ?? "", status: claimed.status() };
   }
   const { claimNonce } = job;
+  const key = createPrivateKey(signer.privateKey);
   const prepared = await page.request.post(`${url}/certificate`, {
-    data: { certificate: signer.certificate, chain: [], claimNonce },
+    data: {
+      certificate: signer.certificate,
+      chain: [],
+      claimNonce,
+      ...(job.kind === "enrol"
+        ? { proof: enrolProof(jobUrl, claimNonce, signer, key) }
+        : {}),
+    },
     headers,
   });
   const reply = (await prepared.json()) as {
@@ -92,7 +123,6 @@ export async function completeHelperJob(
   if (job.kind === "enrol" || !prepared.ok()) {
     return { message: reply.message ?? "", status: prepared.status() };
   }
-  const key = createPrivateKey(signer.privateKey);
   const signed = await page.request.post(`${url}/signature`, {
     data: {
       claimNonce,

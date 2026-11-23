@@ -4,6 +4,9 @@ import type { PgBoss } from "pg-boss";
 const hasWebsiteDispatchToken = (): boolean =>
   !!process.env.WEBSITE_DISPATCH_TOKEN;
 
+const hasSigningService = (): boolean =>
+  !!(process.env.SIGNING_SERVICE_URL && process.env.SIGNING_SERVICE_TOKEN);
+
 const hasLeegality = (): boolean =>
   !!(process.env.LEEGALITY_API_URL && process.env.LEEGALITY_AUTH_TOKEN);
 
@@ -258,6 +261,21 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     );
   } else {
     await boss.unschedule("razorpay-reconcile");
+  }
+
+  // Every 10 minutes — expire DSC helper jobs past their 15 minutes and delete
+  // the R2 blobs of ended ones, which creating a job alone leaves while no
+  // one signs. The worker is registered by the web server, which holds the
+  // KeySeal server.
+  if (hasSigningService()) {
+    await boss.schedule(
+      "sweep-signing-jobs",
+      "*/10 * * * *",
+      {},
+      { expireInSeconds: 540, retryLimit: 0, tz: IST_TIMEZONE }
+    );
+  } else {
+    await boss.unschedule("sweep-signing-jobs");
   }
 
   // Every 10 minutes — record the Aadhaar eSign signatures made on Leegality

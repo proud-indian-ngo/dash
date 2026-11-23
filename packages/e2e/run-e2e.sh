@@ -327,6 +327,7 @@ export ZERO_MUTATE_URL="http://localhost:$TEST_WEB_PORT/api/zero/mutate"
 export ZERO_QUERY_URL="http://localhost:$TEST_WEB_PORT/api/zero/query"
 export ZERO_MUTATE_FORWARD_COOKIES=true
 export ZERO_QUERY_FORWARD_COOKIES=true
+export ZERO_AUTH_REQUIRE_SERVER_USER_ID=true
 export ZERO_ADMIN_PASSWORD="${ZERO_ADMIN_PASSWORD:-e2e-test-admin}"
 export BETTER_AUTH_URL="http://localhost:$TEST_WEB_PORT"
 export CORS_ORIGIN="http://localhost:$TEST_WEB_PORT"

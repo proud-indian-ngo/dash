@@ -4,6 +4,7 @@ import { createRequestLogger } from "evlog";
 import { definePlugin } from "nitro";
 
 import { registerEsignWorker } from "../../src/lib/governance/esign-worker";
+import { registerSigningSweepWorker } from "../../src/lib/governance/signing-sweep-worker";
 import { registerRazorpayWorker } from "../../src/lib/razorpay/worker";
 
 export default definePlugin(async () => {
@@ -17,6 +18,8 @@ export default definePlugin(async () => {
       await registerRazorpayWorker(boss);
       // Holds the Leegality and signing clients, which live in the web app.
       await registerEsignWorker(boss);
+      // Holds the KeySeal server, which lives in the web app.
+      await registerSigningSweepWorker(boss);
     }
   } catch (error) {
     const log = createRequestLogger({ method: "SYSTEM", path: "plugin/jobs" });
