@@ -2,6 +2,7 @@ import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
 import "../context";
+import type { Context } from "../context";
 import {
   assertHasPermission,
   assertHasPermissionOrTeamLead,
@@ -27,6 +28,62 @@ async function assertProgrammeSelectable(
   const programme = await tx.run(zql.programme.where("id", programmeId).one());
   if (!programme || programme.active === false) {
     throw new Error("Choose an active programme");
+  }
+}
+
+/**
+ * Adds a team member and queues their team WhatsApp group add and the "added
+ * to team" notice. The caller checks permission and existing membership.
+ */
+export async function insertTeamMember(
+  tx: Transaction<Schema>,
+  ctx: Context,
+  member: {
+    id: string;
+    role: "lead" | "member";
+    teamId: string;
+    userId: string;
+  },
+  mutator: string
+) {
+  await tx.mutate.teamMember.insert({
+    id: member.id,
+    joinedAt: Date.now(),
+    role: member.role,
+    teamId: member.teamId,
+    userId: member.userId,
+  });
+
+  if (tx.location !== "server") {
+    return;
+  }
+  const { teamId, userId } = member;
+  const memberId = member.id;
+  ctx.asyncTasks?.push({
+    fn: async () => {
+      const { enqueue } = await import("@pi-dash/jobs/enqueue");
+      await enqueue(
+        "whatsapp-add-member-team",
+        { teamId, userId },
+        { traceId: ctx.traceId }
+      );
+    },
+    meta: { mutator, teamId, userId },
+  });
+
+  const teamName = (await tx.run(zql.team.where("id", teamId).one()))?.name;
+  if (teamName) {
+    ctx.asyncTasks?.push({
+      fn: async () => {
+        const { enqueue } = await import("@pi-dash/jobs/enqueue");
+        await enqueue(
+          "notify-added-to-team",
+          { memberId, teamId, teamName, userId },
+          { traceId: ctx.traceId }
+        );
+      },
+      meta: { mutator, teamId, teamName, userId },
+    });
   }
 }
 
@@ -59,51 +116,7 @@ export const teamMutators = {
         throw new Error("User is already a member");
       }
 
-      await tx.mutate.teamMember.insert({
-        id: args.id,
-        joinedAt: Date.now(),
-        role: args.role,
-        teamId: args.teamId,
-        userId: args.userId,
-      });
-
-      if (tx.location === "server") {
-        const { teamId } = args;
-        const { userId } = args;
-        const memberId = args.id;
-        ctx.asyncTasks?.push({
-          fn: async () => {
-            const { enqueue } = await import("@pi-dash/jobs/enqueue");
-            await enqueue(
-              "whatsapp-add-member-team",
-              { teamId, userId },
-              { traceId: ctx.traceId }
-            );
-          },
-          meta: { mutator: "addTeamMember", teamId, userId },
-        });
-
-        const teamName = (await tx.run(zql.team.where("id", args.teamId).one()))
-          ?.name;
-        if (teamName) {
-          ctx.asyncTasks?.push({
-            fn: async () => {
-              const { enqueue } = await import("@pi-dash/jobs/enqueue");
-              await enqueue(
-                "notify-added-to-team",
-                {
-                  memberId,
-                  teamId,
-                  teamName,
-                  userId,
-                },
-                { traceId: ctx.traceId }
-              );
-            },
-            meta: { mutator: "addTeamMember", teamId, teamName, userId },
-          });
-        }
-      }
+      await insertTeamMember(tx, ctx, args, "addTeamMember");
     }
   ),
   create: defineMutator(

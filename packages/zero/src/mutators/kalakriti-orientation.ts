@@ -5,12 +5,16 @@ export interface OrientationTx {
   location?: "client" | "server";
 }
 
-/** SQL owns the role compare-and-set; effects run only after enrollment commits. */
-export async function orientEnrolledKalakritiVolunteer(
+type Promotion = "promoteEventAttendee" | "promoteKalakritiVolunteer";
+
+/** SQL owns the role compare-and-set; effects run only after the caller commits. */
+async function orientVolunteer(
   tx: OrientationTx,
   ctx: Context | undefined,
   userId: string,
-  now: number
+  now: number,
+  promotion: Promotion,
+  mutator: string
 ): Promise<void> {
   if (tx.location !== "server") {
     return;
@@ -19,10 +23,11 @@ export async function orientEnrolledKalakritiVolunteer(
   if (!transaction) {
     throw new Error("Server transaction is unavailable");
   }
-  const { promoteKalakritiVolunteer } =
-    await import("@pi-dash/db/kalakriti-orientation");
-  const promoted = await promoteKalakritiVolunteer(
-    transaction as Parameters<typeof promoteKalakritiVolunteer>[0],
+  const promote = (await import("@pi-dash/db/kalakriti-orientation"))[
+    promotion
+  ];
+  const promoted = await promote(
+    transaction as Parameters<typeof promote>[0],
     userId,
     now
   );
@@ -30,7 +35,7 @@ export async function orientEnrolledKalakritiVolunteer(
     return;
   }
 
-  const meta = { mutator: "orientEnrolledKalakritiVolunteer", userId };
+  const meta = { mutator, userId };
   ctx?.asyncTasks?.push(
     {
       meta: { ...meta, effect: "permissionCache" },
@@ -63,5 +68,38 @@ export async function orientEnrolledKalakritiVolunteer(
         );
       },
     }
+  );
+}
+
+export function orientEnrolledKalakritiVolunteer(
+  tx: OrientationTx,
+  ctx: Context | undefined,
+  userId: string,
+  now: number
+): Promise<void> {
+  return orientVolunteer(
+    tx,
+    ctx,
+    userId,
+    now,
+    "promoteKalakritiVolunteer",
+    "orientEnrolledKalakritiVolunteer"
+  );
+}
+
+/** Attending an event orients an unoriented volunteer. */
+export function orientEventAttendee(
+  tx: OrientationTx,
+  ctx: Context | undefined,
+  userId: string,
+  now: number
+): Promise<void> {
+  return orientVolunteer(
+    tx,
+    ctx,
+    userId,
+    now,
+    "promoteEventAttendee",
+    "orientEventAttendee"
   );
 }

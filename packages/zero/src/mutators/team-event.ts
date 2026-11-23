@@ -34,11 +34,13 @@ import { type Schema, zql } from "../schema";
 import { pickCostCentreId } from "./cost-centre-pick";
 import { assertEventProjectMovesAllowed, eventProjects } from "./grant";
 import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
+import { orientEventAttendee } from "./kalakriti-orientation";
 import {
   clearLeadApprovalsOnMovedEvents,
   eventProgrammes,
 } from "./lead-approval";
 import { assertSafeToJoinEvent } from "./safeguarding";
+import { insertTeamMember } from "./team";
 import {
   buildUpdateFields,
   cancelSeriesAll,
@@ -67,6 +69,40 @@ import {
   pushAddGroupMembersTask,
   whatsappGroupChange,
 } from "./whatsapp-group-link";
+
+/**
+ * Attending an event orients an unoriented volunteer and puts them on the
+ * event's team. Everyone else is left as they are. Sequential so two rows for
+ * one user cannot race to insert the same membership.
+ */
+async function admitAttendees(
+  tx: Transaction<Schema>,
+  ctx: Context,
+  teamId: string,
+  userIds: string[],
+  now: number,
+  mutator: string
+) {
+  for (const userId of new Set(userIds)) {
+    const user = await tx.run(zql.user.where("id", userId).one());
+    if (user?.role !== "unoriented_volunteer") {
+      continue;
+    }
+    await orientEventAttendee(tx, ctx, userId, now);
+    const existing = await tx.run(
+      zql.teamMember.where("teamId", teamId).where("userId", userId).one()
+    );
+    if (existing) {
+      continue;
+    }
+    await insertTeamMember(
+      tx,
+      ctx,
+      { id: uuidv7(), role: "member", teamId, userId },
+      mutator
+    );
+  }
+}
 
 const reminderIntervalsSchema = z
   .array(z.number().refine((n) => REMINDER_PRESET_MINUTES.includes(n)))
@@ -1547,6 +1583,14 @@ export const teamEventMutators = {
           });
         })
       );
+      await admitAttendees(
+        tx,
+        ctx,
+        event.teamId,
+        members.map((member) => member.userId),
+        now,
+        "markAllPresent"
+      );
     }
   ),
 
@@ -1596,6 +1640,16 @@ export const teamEventMutators = {
         attendanceMarkedBy: ctx.userId,
         id: args.memberId,
       });
+      if (args.attendance === "present") {
+        await admitAttendees(
+          tx,
+          ctx,
+          event.teamId,
+          [member.userId],
+          now,
+          "markAttendance"
+        );
+      }
     }
   ),
 
