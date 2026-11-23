@@ -23,6 +23,7 @@ export const singleLiveEditionSpecs = [
 export const roleOnlySpecs = {
   super_admin: [
     "authorization/financial-create-security.spec.ts",
+    "events/attendance-joins-team.spec.ts",
     "events/event-create.spec.ts",
     "events/event-programme.spec.ts",
     "settings/cost-centres.spec.ts",

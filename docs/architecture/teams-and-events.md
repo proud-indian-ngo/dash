@@ -86,6 +86,8 @@ Creating an event that does not start in the past notifies the team. Event Whats
 
 Attendance is set per member row, only after the event starts. For a series, the first session's attendance lives on the parent row, or on its start-date row when one exists ([first session](recurring-events.md#first-session)); every later session's lives on its materialised occurrence. On a past session not yet saved, the Volunteers tab offers "Mark attendance" to people who can open it (`events.edit` or a lead), which materialises it as the social recap does; others see a hint that a lead or editor must open it first.
 
+Marking an `unoriented_volunteer` present, one at a time or with "Mark all present", orients them ([orientation](auth.md#orientation)) and adds them to the event's team when they are not on it, with the usual team WhatsApp add and notice. Attendance changes no one else's role or teams. Marking absent or clearing attendance undoes neither, since a team membership or role may have come from elsewhere.
+
 ### Interest
 
 Volunteers who are not on the team ask to join a public event.

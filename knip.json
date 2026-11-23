@@ -85,6 +85,7 @@
         "helpers/feedback-ownership.ts",
         "helpers/jobs-authorization.ts",
         "helpers/started-event.ts",
+        "helpers/attendance-team.ts",
         "helpers/event-jobs.ts",
         "helpers/reimbursement-stats.ts",
         "helpers/scheduled-delivery.ts",
