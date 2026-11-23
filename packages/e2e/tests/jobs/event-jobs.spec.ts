@@ -209,6 +209,36 @@ test.describe("Event jobs (admin)", () => {
         await expect.poll(runs, { timeout: 30_000 }).toBeGreaterThan(done);
         expect(await inbox(newId)).toEqual(sent);
       });
+
+      await test.step("the delivery page shows both reminders as sent", async () => {
+        const title = "See you tomorrow";
+        await page.goto(
+          `/notification-delivery?search=${encodeURIComponent(title)}`
+        );
+        await expect(
+          page.getByRole("heading", { name: "Notification delivery" })
+        ).toBeVisible();
+        const rows = page.getByRole("row").filter({ hasText: title });
+        await expect(rows).toHaveCount(2, { timeout: 15_000 });
+        const sheets: string[] = [];
+        for (const index of [0, 1]) {
+          await rows.nth(index).getByText(title).click();
+          const sheet = page.getByRole("dialog");
+          await expect(sheet).toContainText(`Lead contact: ${leadContact}`);
+          sheets.push(await sheet.innerText());
+          await page.keyboard.press("Escape");
+          await expect(sheet).toBeHidden();
+        }
+        // One per event, each with its own instructions.
+        expect(
+          sheets.some((text) =>
+            text.includes("Bring a notebook and arrive early.")
+          )
+        ).toBe(true);
+        expect(
+          sheets.some((text) => text.includes("Wear comfortable clothes."))
+        ).toBe(true);
+      });
     } finally {
       await fixture("first-event-cleanup");
     }
