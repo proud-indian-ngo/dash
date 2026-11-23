@@ -147,6 +147,103 @@ test.describe("Event jobs (admin)", () => {
     });
   });
 
+  test("new volunteers get their first event's details and instructions the day before", async ({
+    adminEmail,
+    page,
+    unorientedVolunteerEmail,
+    volunteerEmail,
+  }) => {
+    const { leadContact, newId, orientedId } = await fixture<{
+      leadContact: string;
+      newId: string;
+      orientedId: string;
+    }>(
+      "first-event-setup",
+      adminEmail,
+      unorientedVolunteerEmail,
+      volunteerEmail
+    );
+    try {
+      const inbox = (id: string) =>
+        fixture<InboxRow[]>("first-event-inbox", id);
+      const runs = async () =>
+        (
+          await fixture<{ total: number }>(
+            "jobs-completed",
+            "send-first-event-reminders"
+          )
+        ).total;
+      const before = await runs();
+      await enqueueJob(page, "send-first-event-reminders", {});
+      await expect.poll(runs, { timeout: 30_000 }).toBeGreaterThan(before);
+
+      const sent = await inbox(newId);
+      // The one-off event with its own instructions, then the series session
+      // with its series'. Not the event two days out or the pending one.
+      expect(sent).toEqual([
+        {
+          body: expect.stringMatching(
+            /first Proud Indian session tomorrow: "First event E2E one-off"[\s\S]*Where: Cubbon Park[\s\S]*Bring a notebook and arrive early\.$/
+          ),
+          clickAction: "/events/019f0000-0071-7000-8000-000000007102",
+          title: "👋 See you tomorrow",
+        },
+        {
+          body: expect.stringMatching(
+            /"First event E2E series"[\s\S]*Where: See the event page[\s\S]*Wear comfortable clothes\.$/
+          ),
+          clickAction: "/events/019f0000-0071-7000-8000-000000007106",
+          title: "👋 See you tomorrow",
+        },
+      ]);
+      // Each names the team's lead to contact.
+      for (const row of sent) {
+        expect(row.body).toContain(`Lead contact: ${leadContact}`);
+      }
+      // An oriented volunteer on the same event gets nothing.
+      expect(await inbox(orientedId)).toEqual([]);
+
+      await test.step("a second run inside the window sends nothing new", async () => {
+        const done = await runs();
+        await enqueueJob(page, "send-first-event-reminders", {});
+        await expect.poll(runs, { timeout: 30_000 }).toBeGreaterThan(done);
+        expect(await inbox(newId)).toEqual(sent);
+      });
+
+      await test.step("the delivery page shows both reminders as sent", async () => {
+        const title = "See you tomorrow";
+        await page.goto(
+          `/notification-delivery?search=${encodeURIComponent(title)}`
+        );
+        await expect(
+          page.getByRole("heading", { name: "Notification delivery" })
+        ).toBeVisible();
+        const rows = page.getByRole("row").filter({ hasText: title });
+        await expect(rows).toHaveCount(2, { timeout: 15_000 });
+        const sheets: string[] = [];
+        for (const index of [0, 1]) {
+          await rows.nth(index).getByText(title).click();
+          const sheet = page.getByRole("dialog");
+          await expect(sheet).toContainText(`Lead contact: ${leadContact}`);
+          sheets.push(await sheet.innerText());
+          await page.keyboard.press("Escape");
+          await expect(sheet).toBeHidden();
+        }
+        // One per event, each with its own instructions.
+        expect(
+          sheets.some((text) =>
+            text.includes("Bring a notebook and arrive early.")
+          )
+        ).toBe(true);
+        expect(
+          sheets.some((text) => text.includes("Wear comfortable clothes."))
+        ).toBe(true);
+      });
+    } finally {
+      await fixture("first-event-cleanup");
+    }
+  });
+
   test("interest still pending when its event starts expires; the rest stays", async ({
     adminEmail,
     page,

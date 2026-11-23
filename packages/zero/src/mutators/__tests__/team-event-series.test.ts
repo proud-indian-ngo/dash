@@ -85,6 +85,7 @@ const SERIES_BASE = {
   location: "Office",
   managementDomain: null,
   name: "Weekly Meeting",
+  newVolunteerInstructions: null,
   originalDate: null,
   postEventNudgesEnabled: true,
   postRsvpPoll: false,

@@ -9,6 +9,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { PROGRAMME_IDS, reminderTargetValues } from "@pi-dash/shared/constants";
 import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
+  NEW_VOLUNTEER_INSTRUCTIONS_MAX_LENGTH,
   RSVP_POLL_LEAD_PRESETS,
 } from "@pi-dash/shared/event-reminders";
 import { formatPaise } from "@pi-dash/shared/money";
@@ -72,6 +73,12 @@ const eventFormSchema = z.object({
   isPublic: z.boolean(),
   location: z.string().optional(),
   name: z.string().min(1, "Name is required"),
+  newVolunteerInstructions: z
+    .string()
+    .max(
+      NEW_VOLUNTEER_INSTRUCTIONS_MAX_LENGTH,
+      `Keep it under ${NEW_VOLUNTEER_INSTRUCTIONS_MAX_LENGTH} characters`
+    ),
   partners: partnersFormSchema,
   postEventNudgesEnabled: z.boolean(),
   postRsvpPoll: z.boolean(),
@@ -148,6 +155,7 @@ interface InitialValues {
   isPublic?: boolean | null;
   location: string | null;
   name?: string | null;
+  newVolunteerInstructions?: string | null;
   partners?: readonly {
     instagram: string | null;
     linkedin: string | null;
@@ -206,6 +214,7 @@ function getDefaultValues(
     isPublic: initialValues?.isPublic ?? false,
     location: initialValues?.location ?? undefined,
     name: initialValues?.name ?? "",
+    newVolunteerInstructions: initialValues?.newVolunteerInstructions ?? "",
     partners: toPartnerFormValues(initialValues?.partners),
     postEventNudgesEnabled: initialValues?.postEventNudgesEnabled ?? false,
     postRsvpPoll: initialValues?.postRsvpPoll ?? false,
@@ -283,6 +292,23 @@ function changedProjectId(
   return next === (initialValues?.projectId ?? null) ? undefined : next;
 }
 
+/**
+ * "" clears the instructions. With `omitUnchanged` (a session), a value equal
+ * to its prefill, possibly the series', is left out so the session keeps
+ * inheriting it.
+ */
+function newVolunteerInstructionsArg(
+  value: EventFormValues,
+  initialValues: InitialValues | undefined,
+  omitUnchanged: boolean
+): string | undefined {
+  const next = value.newVolunteerInstructions.trim();
+  return omitUnchanged &&
+    next === (initialValues?.newVolunteerInstructions ?? "")
+    ? undefined
+    : next;
+}
+
 function buildUpdateMutatorArgs(
   id: string,
   value: EventFormValues,
@@ -300,6 +326,11 @@ function buildUpdateMutatorArgs(
     isPublic: value.isPublic,
     location: value.location?.trim() || undefined,
     name: value.name.trim(),
+    newVolunteerInstructions: newVolunteerInstructionsArg(
+      value,
+      initialValues,
+      initialValues.seriesId !== null
+    ),
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
@@ -343,6 +374,11 @@ function buildUpdateSeriesArgs(
     location: value.location?.trim() || undefined,
     mode: editScope as "this" | "following" | "all",
     name: value.name.trim(),
+    newVolunteerInstructions: newVolunteerInstructionsArg(
+      value,
+      initialValues,
+      editScope === "this"
+    ),
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
@@ -409,6 +445,8 @@ function buildCreateMutatorArgs(
     isPublic: value.isPublic,
     location: value.location?.trim() || undefined,
     name: value.name.trim(),
+    newVolunteerInstructions:
+      value.newVolunteerInstructions.trim() || undefined,
     now: Date.now(),
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
@@ -769,6 +807,13 @@ function EventFormContent({
             inputMode="numeric"
             label="Volunteers needed"
             name="volunteersNeeded"
+          />
+          <TextareaField
+            description="Sent with the event details to new volunteers the day before their first event."
+            label="Instructions for new volunteers"
+            name="newVolunteerInstructions"
+            placeholder="e.g. Arrive 15 minutes early and bring a notebook"
+            rows={3}
           />
           <EventPartnersField />
         </>

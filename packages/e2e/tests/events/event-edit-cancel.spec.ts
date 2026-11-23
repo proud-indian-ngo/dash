@@ -73,6 +73,63 @@ test.describe("Event edit and cancel (admin)", () => {
     await expect(page.getByText(updatedName)).toBeVisible({ timeout: 10_000 });
   });
 
+  test("saves, changes and clears an event's instructions for new volunteers", async ({
+    page,
+  }) => {
+    test.slow();
+    const name = `E2E Instructions ${Date.now()}`;
+    const field = page
+      .getByRole("dialog")
+      .getByLabel("Instructions for new volunteers");
+    const openEdit = async () => {
+      const row = page.getByRole("row").filter({ hasText: name });
+      await waitForToastsToClear(page);
+      await new ListPage(page).openRowActionAndClick(row, "Edit");
+      await expect(
+        page
+          .getByRole("dialog")
+          .getByRole("textbox", { exact: true, name: "Name" })
+      ).toHaveValue(name);
+    };
+    const save = async () => {
+      const dialog = page.getByRole("dialog");
+      await dialog
+        .getByRole("button", { exact: true, name: "Save changes" })
+        .click();
+      await expect(dialog).toBeHidden({ timeout: 10_000 });
+    };
+
+    await page.getByRole("button", { name: "Create event" }).click();
+    const createDialog = page.getByRole("dialog");
+    await createDialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(name);
+    await pickDate(
+      createDialog,
+      "Start time",
+      new Date(Date.now() + 86_400_000)
+    );
+    await field.fill("Bring a notebook.");
+    await createDialog
+      .getByRole("button", { exact: true, name: "Create event" })
+      .click();
+    await expect(createDialog).toBeHidden({ timeout: 10_000 });
+    await searchTeamEvents(page, name);
+
+    await openEdit();
+    await expect(field).toHaveValue("Bring a notebook.");
+    await field.fill("Arrive 15 minutes early.");
+    await save();
+
+    await openEdit();
+    await expect(field).toHaveValue("Arrive 15 minutes early.");
+    await field.clear();
+    await save();
+
+    await openEdit();
+    await expect(field).toHaveValue("");
+  });
+
   test("cancels an existing future event", async ({ page }) => {
     test.slow();
 

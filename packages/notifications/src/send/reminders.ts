@@ -501,6 +501,85 @@ export async function notifyEventReminderGroup({
   log.emit();
 }
 
+interface FirstEventReminderOptions {
+  eventId: string;
+  eventName: string;
+  /** The event's own instructions, else its series'. */
+  instructions: string | null;
+  /** The team's leads as "Name (phone)", or null when it has none. */
+  leadContact: string | null;
+  location: string | null;
+  startTime: number;
+  userId: string;
+  userName: string;
+}
+
+/** The day-before message to a new volunteer joining their first event. */
+export async function notifyFirstEventReminder({
+  eventId,
+  eventName,
+  instructions,
+  leadContact,
+  location,
+  startTime,
+  userId,
+  userName,
+}: FirstEventReminderOptions): Promise<void> {
+  const when = formatEventWhen(startTime);
+  const where = location ?? "See the event page";
+  const lead = leadContact ?? "See the event page";
+  const intro = `Hi ${userName}, this is a reminder about your first Proud Indian session tomorrow: "${eventName}" on ${when}.`;
+  const details = {
+    event: eventName,
+    lead,
+    location: where,
+    name: userName,
+    when,
+  };
+  const emailHtml = await renderNotificationEmail({
+    ctaLabel: "View event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    heading: "See you tomorrow",
+    lists: [
+      {
+        items: [`When: ${when}`, `Where: ${where}`, `Lead contact: ${lead}`],
+        title: eventName,
+      },
+    ],
+    ...(instructions ? { note: instructions } : {}),
+    paragraphs: [intro],
+  });
+  await sendMessage({
+    body: [intro, `Where: ${where}`, `Lead contact: ${lead}`, instructions]
+      .filter(Boolean)
+      .join("\n\n"),
+    clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View events", path: "/events" },
+      meta: `Your first session · ${when}${location ? ` · ${location}` : ""}`,
+      name: eventName,
+    },
+    emailHtml,
+    idempotencyKey: `first-event-reminder-${eventId}-${userId}`,
+    // A pre-event reminder, sent on time like the others.
+    immediate: true,
+    title: "👋 See you tomorrow",
+    to: userId,
+    topic: TOPICS.EVENTS_SCHEDULE,
+    whatsappTemplate: instructions
+      ? whatsappTemplate(
+          "first_event_reminder",
+          { ...details, instructions },
+          `/events/${eventId}`
+        )
+      : whatsappTemplate(
+          "first_event_reminder_no_instructions",
+          details,
+          `/events/${eventId}`
+        ),
+  });
+}
+
 interface FeedbackNudgeOptions {
   eventId: string;
   eventName: string;
