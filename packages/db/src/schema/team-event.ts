@@ -62,6 +62,11 @@ export const teamEvent = pgTable(
     location: text("location"),
     managementDomain: text("management_domain").$type<"kalakriti">(),
     name: text("name").notNull(),
+    /**
+     * Sent to unoriented volunteers the day before their first event. Null on
+     * a session inherits the series' instructions.
+     */
+    newVolunteerInstructions: text("new_volunteer_instructions"),
     originalDate: text("original_date"),
     postEventNudgesEnabled: boolean("post_event_nudges_enabled")
       .default(true)

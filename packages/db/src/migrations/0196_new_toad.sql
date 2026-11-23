@@ -1,0 +1,1 @@
+ALTER TABLE "team_event" ADD COLUMN "new_volunteer_instructions" text;

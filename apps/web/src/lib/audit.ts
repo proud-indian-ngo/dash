@@ -246,6 +246,7 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "value",
   "vendorId",
   "vendorPaymentId",
+  "newVolunteerInstructions",
   "volunteersNeeded",
   "voucherAttachmentId",
   "whatsappEnabled",

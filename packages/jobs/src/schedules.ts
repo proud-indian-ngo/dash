@@ -197,6 +197,14 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
   );
 
+  // Every 15 minutes — day-before reminder to new volunteers for their first event
+  await boss.schedule(
+    "send-first-event-reminders",
+    "*/15 * * * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
   // Hourly — post-event reminders (feedback nudge, attendance, photo upload)
   await boss.schedule(
     "process-post-event-reminders",

@@ -94,6 +94,7 @@ Volunteers who are not on the team ask to join a public event.
 2. A lead or `events.manage_interest` approves or rejects. Approval adds the event member.
 3. The volunteer can cancel a pending request, which deletes it.
 4. `expire-event-interests` marks requests still pending at the event's start `expired` ([jobs](jobs.md#schedules)).
+5. 24 hours before the start, `send-first-event-reminders` sends each approved volunteer still on the event and still `unoriented_volunteer` the event's details, the name and phone of each active lead of the event's team, and its instructions for new volunteers. A session without instructions of its own sends its series', so instructions added to a series reach sessions already saved. Why the role: it marks someone who has not been oriented, and orientation usually follows a first class. Approval or interest after that mark gets no reminder.
 
 Nested event interests show only the viewer's own requests or those they can review; leadership revocation removes reviewer access reactively. Pending requests are visible to `events.manage_interest` everywhere and to leads for their teams' events. Those reviewers also see each requester's phone, WhatsApp link and email inline, since leads rarely hold `users.view` and touch devices cannot open the hover card. Website sign-ups file interest after email verification ([auth](auth.md#link-parameters)).
 
@@ -141,6 +142,7 @@ Storage, the sync job, deletion and media access are in [file uploads](file-uplo
 | Job | When | Does |
 |---|---|---|
 | `process-event-reminders` | every 15 min | Pre-event reminders at the event's `reminderIntervals`, to participants, the group or both |
+| `send-first-event-reminders` | every 15 min | The day-before message to new volunteers ([interest](#interest)) |
 | `send-event-rsvp-polls` | every 15 min | WhatsApp RSVP poll `rsvpPollLeadMinutes` before start when `postRsvpPoll` is on |
 | `process-post-event-reminders` | hourly | Feedback nudge 6 hours after the end; with `postEventNudgesEnabled`, 24 hours after the end, attendance and photo nudges when none exist |
 | `remind-feedback-deadline` | daily 09:00 | Members who haven't responded, when the deadline is within 24 hours |

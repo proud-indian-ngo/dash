@@ -129,6 +129,7 @@ import { handleSendContributionReceipt } from "./send-contribution-receipt";
 import { handleSendContributionReceiptWhatsApp } from "./send-contribution-receipt-whatsapp";
 import { handleSendDonationCertificate } from "./send-donation-certificate";
 import { handleSendEventRsvpPolls } from "./send-event-rsvp-polls";
+import { handleSendFirstEventReminders } from "./send-first-event-reminders";
 import { handleSendNotification } from "./send-notification";
 import { handleSendScheduledMessage } from "./send-scheduled-message";
 import {
@@ -703,6 +704,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "process-event-reminders",
     NOTIFY_POLL,
     withDefaultOutput(handleProcessEventReminders)
+  );
+  await boss.work(
+    "send-first-event-reminders",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleSendFirstEventReminders(jobs))
   );
   await boss.work(
     "process-post-event-reminders",

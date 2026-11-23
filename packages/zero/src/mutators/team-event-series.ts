@@ -78,6 +78,7 @@ export function buildExceptionInsert(
     inheritVolunteers: boolean;
     cancelledAt: number | null;
     volunteersNeeded: number | null;
+    newVolunteerInstructions: string | null;
   }> = {}
 ) {
   return {
@@ -97,6 +98,8 @@ export function buildExceptionInsert(
     location: overrides.location ?? series.location ?? null,
     managementDomain: series.managementDomain,
     name: overrides.name ?? series.name,
+    // Null inherits the series' instructions.
+    newVolunteerInstructions: overrides.newVolunteerInstructions || null,
     originalDate,
     postEventNudgesEnabled:
       overrides.postEventNudgesEnabled ?? series.postEventNudgesEnabled,
@@ -144,6 +147,8 @@ export interface UpdateArgs {
   isPublic?: boolean;
   location?: string;
   name?: string;
+  /** Undefined leaves the instructions alone; null or "" clears them. */
+  newVolunteerInstructions?: string | null;
   now: number;
   postEventNudgesEnabled?: boolean;
   postRsvpPoll?: boolean;
@@ -167,6 +172,9 @@ export function buildUpdateFields(args: UpdateArgs) {
       description: args.description || null,
     }),
     ...(args.location !== undefined && { location: args.location || null }),
+    ...(args.newVolunteerInstructions !== undefined && {
+      newVolunteerInstructions: args.newVolunteerInstructions || null,
+    }),
     ...(args.publicArea !== undefined && {
       publicArea: args.publicArea || null,
     }),
@@ -402,6 +410,7 @@ export async function updateSeriesThis(
     reminderIntervals?: number[] | null;
     reminderTarget?: ReminderTarget;
     volunteersNeeded?: number | null;
+    newVolunteerInstructions?: string | null;
     whatsappGroupId?: string | null;
   },
   existing: TeamEvent,
@@ -430,6 +439,7 @@ export async function updateSeriesThis(
           isPublic: args.isPublic,
           location: args.location,
           name: args.name,
+          newVolunteerInstructions: args.newVolunteerInstructions,
           postEventNudgesEnabled: args.postEventNudgesEnabled,
           postRsvpPoll: args.postRsvpPoll,
           programmeId: args.programmeId,
@@ -534,6 +544,7 @@ export async function updateSeriesFollowing(
     inheritVolunteers?: boolean;
     recurrenceRule?: RecurrenceRuleValue;
     volunteersNeeded?: number | null;
+    newVolunteerInstructions?: string | null;
   },
   existing: TeamEvent,
   userId: string
@@ -580,6 +591,10 @@ export async function updateSeriesFollowing(
     isPublic: args.isPublic ?? existing.isPublic,
     location: args.location ?? existing.location ?? null,
     name: args.name ?? existing.name,
+    newVolunteerInstructions:
+      args.newVolunteerInstructions === undefined
+        ? (existing.newVolunteerInstructions ?? null)
+        : args.newVolunteerInstructions || null,
     originalDate: args.originalDate,
     postEventNudgesEnabled:
       args.postEventNudgesEnabled ?? existing.postEventNudgesEnabled,

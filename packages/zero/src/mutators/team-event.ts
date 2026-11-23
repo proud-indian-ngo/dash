@@ -4,6 +4,7 @@ import {
   reminderTargetValues,
 } from "@pi-dash/shared/constants";
 import {
+  NEW_VOLUNTEER_INSTRUCTIONS_MAX_LENGTH,
   REMINDER_PRESET_MINUTES,
   RSVP_POLL_LEAD_PRESET_MINUTES,
 } from "@pi-dash/shared/event-reminders";
@@ -73,6 +74,14 @@ const reminderIntervalsSchema = z
   .optional();
 
 const reminderTargetSchema = z.enum(reminderTargetValues).optional();
+
+/** Undefined leaves the instructions alone; null or "" clears them. */
+const newVolunteerInstructionsSchema = z
+  .string()
+  .trim()
+  .max(NEW_VOLUNTEER_INSTRUCTIONS_MAX_LENGTH)
+  .nullable()
+  .optional();
 
 const rsvpPollLeadMinutesSchema = z
   .number()
@@ -1182,6 +1191,7 @@ export const teamEventMutators = {
       isPublic: z.boolean().optional(),
       location: z.string().optional(),
       name: z.string().min(1),
+      newVolunteerInstructions: newVolunteerInstructionsSchema,
       now: z.number(),
       postEventNudgesEnabled: z.boolean().optional(),
       partners: eventPartnersSchema.optional(),
@@ -1254,6 +1264,7 @@ export const teamEventMutators = {
         isPublic: args.isPublic,
         location: args.location,
         name: args.name,
+        newVolunteerInstructions: args.newVolunteerInstructions || null,
         originalDate: null,
         postEventNudgesEnabled: args.postEventNudgesEnabled,
         postRsvpPoll: args.postRsvpPoll,
@@ -1788,6 +1799,7 @@ export const teamEventMutators = {
       isPublic: z.boolean().optional(),
       location: z.string().optional(),
       name: z.string().min(1).optional(),
+      newVolunteerInstructions: newVolunteerInstructionsSchema,
       now: z.number(),
       postEventNudgesEnabled: z.boolean().optional(),
       partners: eventPartnersSchema.optional(),
@@ -1967,6 +1979,7 @@ export const teamEventMutators = {
       mode: z.enum(["this", "following", "all"]),
       name: z.string().min(1).optional(),
       newExceptionId: z.string().optional(),
+      newVolunteerInstructions: newVolunteerInstructionsSchema,
       newSeriesId: z.string().optional(),
       now: z.number(),
       originalDate: z.string().regex(ISO_DATE_RE).optional(),

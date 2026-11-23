@@ -618,6 +618,8 @@ export interface ProcessPostEventRemindersPayload {
   triggeredAt: string;
 }
 
+export type SendFirstEventRemindersPayload = Record<string, never>;
+
 export interface SendEventRsvpPollsPayload {
   triggeredAt: string;
 }
@@ -881,6 +883,7 @@ export interface JobPayloads {
   "send-donation-certificate": SendDonationCertificatePayload;
   "store-contribution-receipt-pdf": StoreContributionReceiptPdfPayload;
   "send-event-rsvp-polls": SendEventRsvpPollsPayload;
+  "send-first-event-reminders": SendFirstEventRemindersPayload;
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;
   "send-scheduled-whatsapp": SendScheduledWhatsAppPayload;

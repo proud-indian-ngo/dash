@@ -58,6 +58,11 @@ function buildEventEditInitialValues(
     isPublic: !!event.isPublic,
     location: event.location,
     name: event.name,
+    // A session without its own instructions sends its series'.
+    newVolunteerInstructions:
+      event.newVolunteerInstructions ??
+      seriesParent?.newVolunteerInstructions ??
+      null,
     partners: social.partners,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: !!event.postRsvpPoll,
@@ -161,6 +166,10 @@ export function buildEventDuplicateInitialValues(
     isPublic: !!event.isPublic,
     location: event.location,
     name: `Copy of ${event.name}`,
+    newVolunteerInstructions:
+      event.newVolunteerInstructions ??
+      seriesParent?.newVolunteerInstructions ??
+      null,
     partners: social.partners,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: !!event.postRsvpPoll,

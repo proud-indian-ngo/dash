@@ -8,6 +8,12 @@ export const REMINDER_PRESETS = [
 
 export type ReminderPreset = (typeof REMINDER_PRESETS)[number];
 
+/**
+ * An event's instructions for new volunteers go out as one WhatsApp template
+ * parameter, which Meta caps at 300 characters on one line.
+ */
+export const NEW_VOLUNTEER_INSTRUCTIONS_MAX_LENGTH = 300;
+
 /** Default RSVP poll lead time in minutes (3 days). */
 export const DEFAULT_RSVP_POLL_LEAD_MINUTES = 4320;
 
