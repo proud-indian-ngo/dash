@@ -1,12 +1,12 @@
 # PostHog CLI for the source map upload, pinned with checksums from its GitHub release
-FROM oven/bun:1.4.4-slim AS posthog-cli
+FROM oven/bun:1.4.5-slim AS posthog-cli
 ARG TARGETARCH
 RUN case "$TARGETARCH" in \
-      arm64) target=aarch64-unknown-linux-gnu; sha=13a986a164b3ec8f093ef7f2a9cd1360ba2f9748deab1e8e4a471fbec85bb46c ;; \
-      amd64) target=x86_64-unknown-linux-gnu; sha=6d753ad8eafef0c2a4cf3d64d59dca7ad8236688a812f58c4496cc482016d6b3 ;; \
+      arm64) target=aarch64-unknown-linux-gnu; sha=e4eb32f64deef2c7251a572ca3c3dae455a4d652305ab669df3bdc0ea2775338 ;; \
+      amd64) target=x86_64-unknown-linux-gnu; sha=42de1b77431fefc10653aada1f5a8023839090cd62d043b7746b273d2b75ca9d ;; \
       *) echo "posthog-cli: unsupported architecture $TARGETARCH"; exit 1 ;; \
     esac; \
-    bun -e "await Bun.write('/tmp/cli.tar.gz', await fetch('https://github.com/PostHog/posthog/releases/download/posthog-cli/v0.19.0/posthog-cli-$target.tar.gz'))" && \
+    bun -e "await Bun.write('/tmp/cli.tar.gz', await fetch('https://github.com/PostHog/posthog/releases/download/posthog-cli/v0.20.1/posthog-cli-$target.tar.gz'))" && \
     echo "$sha  /tmp/cli.tar.gz" | sha256sum -c - && \
     tar -xzf /tmp/cli.tar.gz -C /tmp && \
     mv "/tmp/posthog-cli-$target/posthog-cli" /usr/local/bin/posthog-cli && \
@@ -14,7 +14,7 @@ RUN case "$TARGETARCH" in \
     posthog-cli --version
 
 # Shared dependencies and source for the web build and migrator bundle
-FROM oven/bun:1.4.4-slim AS source
+FROM oven/bun:1.4.5-slim AS source
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/
@@ -99,7 +99,7 @@ RUN bun build packages/db/scripts/migrate.ts --target=bun --outfile=/out/scripts
     cp packages/db/src/migrations/meta/_journal.json /out/src/migrations/meta/
 
 # Production
-FROM oven/bun:1.4.4-slim AS production
+FROM oven/bun:1.4.5-slim AS production
 ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output

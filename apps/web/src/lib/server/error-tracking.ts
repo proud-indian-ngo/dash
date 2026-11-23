@@ -213,14 +213,19 @@ export function createErrorTrackingDrain(
     }
     const userId = typeof event.userId === "string" ? event.userId : undefined;
     // Without a user, posthog-node sends a personless event.
-    client.captureException(scrubError(error), userId, {
-      $geoip_disable: true,
-      environment: config.environment,
-      release: config.release,
-      route:
-        typeof event.path === "string" ? routeTemplate(event.path) : undefined,
-      status: event.status,
-      traceId: event.traceId ?? event.requestId,
+    client.captureException(scrubError(error), {
+      distinctId: userId,
+      properties: {
+        $geoip_disable: true,
+        environment: config.environment,
+        release: config.release,
+        route:
+          typeof event.path === "string"
+            ? routeTemplate(event.path)
+            : undefined,
+        status: event.status,
+        traceId: event.traceId ?? event.requestId,
+      },
     });
   };
 }
@@ -276,11 +281,14 @@ export async function captureThrownError(
     return;
   }
   const userId = await resolveUserId().catch(withoutUser);
-  tracker.client.captureException(scrubError(error), userId, {
-    $geoip_disable: true,
-    environment: tracker.config.environment,
-    release: tracker.config.release,
-    status: 500,
-    ...properties,
+  tracker.client.captureException(scrubError(error), {
+    distinctId: userId,
+    properties: {
+      $geoip_disable: true,
+      environment: tracker.config.environment,
+      release: tracker.config.release,
+      status: 500,
+      ...properties,
+    },
   });
 }

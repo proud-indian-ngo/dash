@@ -45,9 +45,21 @@ XqB83SF8MJPh5Jx2Y4Mc3GIa
 
 /** Self-signed CN=ASHA RAO certificates on other keys, 2026 to 2100. */
 const P256_CERT =
-  "MIIBdjCCARygAwIBAgIUFs05FpN7C6WVanyPZnBm2zEodjMwCgYIKoZIzj0EAwIwIDELMAkGA1UEBhMCSU4xETAPBgNVBAMMCEFTSEEgUkFPMCAXDTI2MTAyMjExNTQ0NFoYDzIxMDAwOTI0MTE1NDQ0WjAgMQswCQYDVQQGEwJJTjERMA8GA1UEAwwIQVNIQSBSQU8wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAS+fuVNARDcz0NW+74/1LgLpKsLKoJm8/VtPXdPon5Xmnx8TIPJcLvgg/5vrBWUXp1NiLDXzrV2f5Ve57wn0MLKozIwMDAdBgNVHQ4EFgQUolEPN/1ZpNO20ApmqX1N+OOQ9MYwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNIADBFAiAx1gVa5x/uN16Lnscgn/LXD0SHGBwsQ1z6/q+xytAUwAIhAKiAOB8bkaH4Yfze7fvhYU8tCoiXvprUoYINGvOsGtIm";
+  "MIIBdTCCARygAwIBAgIUOZE8i+CD4I3aIQiyGvczft2C7w8wCgYIKoZIzj0EAwIwIDELMAkGA1UEBhMCSU4xETAPBgNVBAMMCEFTSEEgUkFPMCAXDTI2MTAyMjAwMDAwMFoYDzIxMDAwOTI0MDAwMDAwWjAgMQswCQYDVQQGEwJJTjERMA8GA1UEAwwIQVNIQSBSQU8wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASNg0oSChzp23ba2HKagS/cX/zDLU2qcPFcznf3Qr0SjRJvR8YFJ3AKu6g6VDHy9SBsYubifib/+vfo6oSJOkiGozIwMDAdBgNVHQ4EFgQUA6M8MhC51j6aedqWmFa+1xDMoKIwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNHADBEAiBJHKSTIZTG29RXMfAyivOPCW2Kvbhn4rVA0ZvoZLDNcQIgUBk3Th3HH1IUmrO7ChMyy77TdSs+uCPvC2sFyzIfk/M=";
 const P384_CERT =
-  "MIIBsjCCATmgAwIBAgIUcH48Lgpz9V/pr5sUJ2J2jb5fLF8wCgYIKoZIzj0EAwIwIDELMAkGA1UEBhMCSU4xETAPBgNVBAMMCEFTSEEgUkFPMCAXDTI2MTAyMjExNTQ0NFoYDzIxMDAwOTI0MTE1NDQ0WjAgMQswCQYDVQQGEwJJTjERMA8GA1UEAwwIQVNIQSBSQU8wdjAQBgcqhkjOPQIBBgUrgQQAIgNiAASQDm9afP6QPAEO2YssT4kYbOXz3aVgSAorkO97PrBG4wCsVrLtYxRie8rNjX38Pas02/YBxIskkLO0UbZPNMPQ3DXBsIbX7GEmhYA6n1UEdZGwhUevp/xX6QyieQSR7MOjMjAwMB0GA1UdDgQWBBTfKyt1jet2Vy6HqqgzCcDTqaoIATAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA2cAMGQCMFfZBTqnY/5P81olmLEKWwsgfLfJiPgYeflQs9v64K7NV2+Yvnkj7Bi85Wkke44zEQIwdJxM65EP/Y040r+XLVk3vgG+3jd6n0EF2qvEWDzDKBzB+fz/B7qby2C2zBxQ8J/E";
+  "MIIBszCCATmgAwIBAgIUCkfGR+XeeXG4x93RgJbRdyfA85kwCgYIKoZIzj0EAwIwIDELMAkGA1UEBhMCSU4xETAPBgNVBAMMCEFTSEEgUkFPMCAXDTI2MTAyMjAwMDAwMFoYDzIxMDAwOTI0MDAwMDAwWjAgMQswCQYDVQQGEwJJTjERMA8GA1UEAwwIQVNIQSBSQU8wdjAQBgcqhkjOPQIBBgUrgQQAIgNiAASUwmRbJpcTFSR6B6i9yx5L6t/Mn4Fx1rwMLVDDQTBYvMWQZzFXA1pJOoseZP7r5++lyGv4JF1PY+P3BQSelWhz+MSiDCTatndBScMZlR6F+3MB+yTCpPaJ3AnSQRkKoH+jMjAwMB0GA1UdDgQWBBQQWgbrb2dXNU2/YKNf57UGNxYSvzAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA2gAMGUCMQDhXisJu5415+CLWQiSBqnSH3joKuZMuLwPFv2A1o2IpT0afRWx7IuxsLmxqenOo9kCMB187Qj8tOvIQG1q755vNU4eiCQrXmwfuNqzBehbA+YusgPDpjd1VhFsnWDOvcR8Kw==";
+/** P256_CERT's and P384_CERT's throwaway private keys, for enrolment proofs. */
+const P256_KEY = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPj48fTFrOt0MP4Z+
+afhwz3PVUQhUPWk3MrnFAgO1b6+hRANCAASNg0oSChzp23ba2HKagS/cX/zDLU2q
+cPFcznf3Qr0SjRJvR8YFJ3AKu6g6VDHy9SBsYubifib/+vfo6oSJOkiG
+-----END PRIVATE KEY-----`;
+const P384_KEY = `-----BEGIN PRIVATE KEY-----
+MIG2AgEAMBAGByqGSM49AgEGBSuBBAAiBIGeMIGbAgEBBDD8Q9JTIv3i1RQY9nmY
+bPVASrZzN6DOdXmbnkNkNo9l7NikmizmjWvSxUJVUB+Zm2ahZANiAASUwmRbJpcT
+FSR6B6i9yx5L6t/Mn4Fx1rwMLVDDQTBYvMWQZzFXA1pJOoseZP7r5++lyGv4JF1P
+Y+P3BQSelWhz+MSiDCTatndBScMZlR6F+3MB+yTCpPaJ3AnSQRkKoH8=
+-----END PRIVATE KEY-----`;
 const SECP256K1_CERT =
   "MIIBczCCARmgAwIBAgIUUBI1ik415wbKJmBN7gCbmUWbXNkwCgYIKoZIzj0EAwIwIDELMAkGA1UEBhMCSU4xETAPBgNVBAMMCEFTSEEgUkFPMCAXDTI2MTAyMjExNTQ0NFoYDzIxMDAwOTI0MTE1NDQ0WjAgMQswCQYDVQQGEwJJTjERMA8GA1UEAwwIQVNIQSBSQU8wVjAQBgcqhkjOPQIBBgUrgQQACgNCAASaZTVU8t6Ul23Nmz3NXiVe8vMpFVhGhGIovaA39XovVy7gMfAq/trFIpwJfVMiZi26C2Ll8gBlpDRzyqfc2T4hozIwMDAdBgNVHQ4EFgQUPfbr8zeIIHm4h+0y7WkXh/llE3EwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNIADBFAiAU0/iUPSBDNleNKdESLBfSGSL7ggeqbr6BJldAnZtqhgIhALQ8UsJntMonxBHtdlUIqa/fwcsMhxKZjurg39GdKwMQ";
 const ED25519_CERT =
@@ -265,6 +277,31 @@ async function claim(token: string): Promise<string> {
   return String(reply.body.claimNonce);
 }
 
+const KEYS: Record<string, string> = {
+  [ASHA_CERT]: ASHA_KEY,
+  [P256_CERT]: P256_KEY,
+  [P384_CERT]: P384_KEY,
+};
+
+/**
+ * The helper's enrolment proof (KeySeal spec section 8.6): the certificate's
+ * key signs the job URL, claim nonce and certificate hash. A certificate
+ * without a test key gets ASHA_KEY's, which the server never reaches, since
+ * it refuses the certificate first.
+ */
+function proofFor(token: string, claimNonce: string, der: string): string {
+  const key = createPrivateKey(KEYS[der] ?? ASHA_KEY);
+  const message = [
+    "KeySeal enrol proof v1",
+    `${ORIGIN}/api/signing/v1/jobs/${token}`,
+    claimNonce,
+    createHash("sha256").update(Buffer.from(der, "base64")).digest("hex"),
+  ].join("\0");
+  const digest =
+    key.asymmetricKeyDetails?.namedCurve === "secp384r1" ? "sha384" : "sha256";
+  return sign(digest, Buffer.from(message), key).toString("base64");
+}
+
 async function enrolWith(der: string, chain: string[] = []) {
   const { token } = started(await startEnrolJob(ASHA));
   const claimNonce = await claim(token);
@@ -272,6 +309,7 @@ async function enrolWith(der: string, chain: string[] = []) {
     certificate: der,
     chain,
     claimNonce,
+    proof: proofFor(token, claimNonce, der),
   });
   return { reply, token };
 }
@@ -491,6 +529,7 @@ describe("enrolment", () => {
       certificate: ASHA_CERT,
       chain: [],
       claimNonce,
+      proof: proofFor(token, claimNonce, ASHA_CERT),
     });
     expect(reply.status).toBe(422);
     expect(String(reply.body.message)).toContain("Vikram Menon");

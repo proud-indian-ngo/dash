@@ -15,6 +15,11 @@ from pyhanko.sign import timestamps
 from starlette.concurrency import run_in_threadpool
 from keyseal_service.app import MAX_PDF_BYTES
 from keyseal_service.settings import Settings
+from keyseal_service.timestamping import (
+    TSA_TIMEOUT_SECONDS,
+    TimestampAuthorities,
+    TimestampUnavailableError,
+)
 
 from .answers import MAX_VALUE, AnswersError, fill_answers
 from .esign import (
@@ -142,7 +147,18 @@ def router(settings: Settings) -> APIRouter:
             raise HTTPException(413, "PDF too large")
         return {"same": same_pages(pdf, other)}
 
-    tsa = timestamps.HTTPTimeStamper(settings.tsa_url) if settings.tsa_url else None
+    # The service's fallback across SIGNING_TSA_URL's authorities, as its own
+    # /finalize and /retimestamp use.
+    tsa = (
+        TimestampAuthorities(
+            [
+                (url, timestamps.HTTPTimeStamper(url, timeout=TSA_TIMEOUT_SECONDS))
+                for url in settings.tsa_urls
+            ]
+        )
+        if settings.tsa_urls
+        else None
+    )
 
     async def archive(request: Request, run, what: str) -> Response:  # type: ignore[no-untyped-def]
         if tsa is None:
@@ -151,7 +167,9 @@ def router(settings: Settings) -> APIRouter:
         if len(pdf) > MAX_PDF_BYTES:
             raise HTTPException(413, "PDF too large")
         try:
-            out = await off_loop(lambda: run(pdf, tsa, settings.validation))
+            out = await off_loop(lambda: run(pdf, tsa.stamper(), settings.validation))
+        except TimestampUnavailableError as error:
+            raise HTTPException(503, str(error)) from error
         except Exception as error:  # noqa: BLE001 - reported, the PDF stays as it was
             log.exception("Couldn't %s an eSign copy", what)
             raise HTTPException(422, f"Couldn't {what}: {type(error).__name__}") from error

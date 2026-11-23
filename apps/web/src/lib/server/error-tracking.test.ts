@@ -273,14 +273,16 @@ describe("createErrorTrackingDrain", () => {
     drain({ event: wideEvent({ level: "info", path: "/api/teams" }) });
 
     expect(captureException).toHaveBeenCalledTimes(1);
-    expect(captureException.mock.calls[0]?.[1]).toBe("user-1");
-    expect(captureException.mock.calls[0]?.[2]).toEqual({
-      $geoip_disable: true,
-      environment: "production",
-      release: "abc123",
-      route: "/api/teams/:id",
-      status: 500,
-      traceId: "trace-1",
+    expect(captureException.mock.calls[0]?.[1]).toEqual({
+      distinctId: "user-1",
+      properties: {
+        $geoip_disable: true,
+        environment: "production",
+        release: "abc123",
+        route: "/api/teams/:id",
+        status: 500,
+        traceId: "trace-1",
+      },
     });
   });
 });
@@ -313,9 +315,9 @@ describe("captureThrownError", () => {
       message: "connection reset",
       stack: error.stack,
     });
-    expect(captureException.mock.calls[0]?.slice(1)).toEqual([
-      "user-1",
-      {
+    expect(captureException.mock.calls[0]?.[1]).toEqual({
+      distinctId: "user-1",
+      properties: {
         $geoip_disable: true,
         environment: "production",
         release: "abc123",
@@ -323,7 +325,7 @@ describe("captureThrownError", () => {
         status: 500,
         traceId: "trace-1",
       },
-    ]);
+    });
   });
 
   it("skips expected errors, aborts and thrown non-errors", async () => {
@@ -409,7 +411,7 @@ describe("captureThrownError", () => {
     );
 
     expect(captureException).toHaveBeenCalledTimes(1);
-    expect(captureException.mock.calls[0]?.[1]).toBeUndefined();
+    expect(captureException.mock.calls[0]?.[1]?.distinctId).toBeUndefined();
   });
 
   it("reports each request's thrown error once", async () => {
