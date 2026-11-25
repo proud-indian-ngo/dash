@@ -37,7 +37,7 @@
         "@better-auth/mcp": "catalog:",
         "@better-auth/oauth-provider": "catalog:",
         "@dicebear/core": "^10.7.0",
-        "@dicebear/styles": "^10.6.0",
+        "@dicebear/styles": "^11.0.0",
         "@dnd-kit/core": "catalog:",
         "@dnd-kit/sortable": "catalog:",
         "@hugeicons/core-free-icons": "catalog:",
@@ -616,7 +616,7 @@
 
     "@dicebear/core": ["@dicebear/core@10.7.0", "", {}, "sha512-JUOzKOd8RUByJJo8ZL+C7YE/pvEsWewfpbWUmR8OIQZWv/PvUQHnohdevySC3icyyxe6EIU/8B/rQgA42us1QA=="],
 
-    "@dicebear/styles": ["@dicebear/styles@10.6.0", "", {}, "sha512-KhxbEVI+z8TaenX58+ZhIRFBt7adggu/F+8g6ZYLu43H2/lgLuWA3Kg8vHBrCVWdfTTTt1p2wUhQomIkkypTuQ=="],
+    "@dicebear/styles": ["@dicebear/styles@11.0.0", "", {}, "sha512-rVMdmfy0JTEFLZ8ad8/jqB6yFHQZiHogqHP1Ul68EZA9SEloJzlAMGGUxPrLiCvT98GA8Tu5LGAw9DZkJMJHrg=="],
 
     "@dnd-kit/accessibility": ["@dnd-kit/accessibility@3.1.1", "", { "dependencies": { "tslib": "^2.0.0" }, "peerDependencies": { "react": ">=16.8.0" } }, "sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw=="],
 
