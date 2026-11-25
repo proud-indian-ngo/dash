@@ -17,7 +17,7 @@
     "@base-ui/react": "^1.9.0",
     "@better-auth/mcp": "catalog:",
     "@better-auth/oauth-provider": "catalog:",
-    "@dicebear/core": "^10.7.0",
+    "@dicebear/core": "^11.0.0",
     "@dicebear/styles": "^10.6.0",
     "@dnd-kit/core": "catalog:",
     "@dnd-kit/sortable": "catalog:",

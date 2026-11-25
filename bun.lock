@@ -36,7 +36,7 @@
         "@base-ui/react": "^1.9.0",
         "@better-auth/mcp": "catalog:",
         "@better-auth/oauth-provider": "catalog:",
-        "@dicebear/core": "^10.7.0",
+        "@dicebear/core": "^11.0.0",
         "@dicebear/styles": "^10.6.0",
         "@dnd-kit/core": "catalog:",
         "@dnd-kit/sortable": "catalog:",
@@ -614,7 +614,7 @@
 
     "@date-fns/tz": ["@date-fns/tz@1.5.0", "", {}, "sha512-lwYN/vDPeNRULcepoE/LO2Pgx+7/RV+S9ARfbc9lr2DtGkOD7pAiruHvbR1RX3Qyf6ja47EWJDMsNK5vK08DJg=="],
 
-    "@dicebear/core": ["@dicebear/core@10.7.0", "", {}, "sha512-JUOzKOd8RUByJJo8ZL+C7YE/pvEsWewfpbWUmR8OIQZWv/PvUQHnohdevySC3icyyxe6EIU/8B/rQgA42us1QA=="],
+    "@dicebear/core": ["@dicebear/core@11.0.0", "", {}, "sha512-L0k5hMkpfyukn+Me5zF69+Gvo2Pvv/z1NXnQwNPrgN2gC2DQKp/yUNVmzs0dyOYquouHKvqzYPYtK4rulTg7yQ=="],
 
     "@dicebear/styles": ["@dicebear/styles@10.6.0", "", {}, "sha512-KhxbEVI+z8TaenX58+ZhIRFBt7adggu/F+8g6ZYLu43H2/lgLuWA3Kg8vHBrCVWdfTTTt1p2wUhQomIkkypTuQ=="],
 
